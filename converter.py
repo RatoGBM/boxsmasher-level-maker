@@ -1,23 +1,54 @@
+#!/usr/bin/env python3
 from PIL import Image
+import sys
 
-def main(save_to_output=False):
-    input_file = 'example-level.png'
-    output_file = 'example-level.lua'
+def main():
+    arguments = sys.argv
+    if len(arguments)!=2:
+        print("python3 converter.py <input_file> > <output_file>")
+        return
+    input_file = arguments[1]
 
     author = "me"
     totalBalls = 2
     grid_constant = 40 # don't change
     # grid size is 1280/40 = 32 x 720/40=18 pixels (conf.lua)
-    color_designations = [
-        [(255,0,0,255),'boxclusters',''],
-        [(0,255,0,255),'throwBoundary',''],
-        [(0,0,255,255),'terrain','']
+    color_designations = [ # (RGBA, type, [additional, single-block])
+        [(255,0,0,255),'boxclusters',['',False]],
+        [(200,0,0,255),'boxclusters',['',True]],
+        [(0,255,0,255),'throwBoundary',['',False]],
+        [(0,0,255,255),'terrain',['',False]]
     ]
 
-    level = build(input_file,output_file,author,totalBalls,grid_constant,color_designations)
-    if (save_to_output):
-        with open(output_file,'w') as f:
-            f.write(level)
+    return build(input_file,author,totalBalls,grid_constant,color_designations)
+
+def build(input_file,author,totalBalls,grid_constant,color_designations):
+    pixels, width, height = load_image(input_file)
+    groups = grouping(pixels, width, height)
+    
+    boundaries = {
+        'boxclusters' : [],
+        'throwBoundary' : [],
+        'terrain' : []
+    }
+
+    for group in groups:
+        for c in color_designations:
+            if c[0]==group[4]:
+                group.append(c[2])
+                boundaries[c[1]].append(group)
+    
+    level = f"""return {{
+    author = "{author}",
+    totalBalls = {totalBalls},
+    throwBoundary = {{{throwBoundaryFormatting(boundaries['throwBoundary'][0],grid_constant)}
+    }},
+    boxclusters = {{{clustersFormatting(boundaries['boxclusters'],grid_constant)}
+    }},
+    terrain = {{{terrainsFormatting(boundaries['terrain'],grid_constant)}
+    }},
+}}
+"""
     return level
 
 def load_image(filename):
@@ -65,16 +96,26 @@ def throwBoundaryFormatting(boundary,grid_constant):
     return f"""
         x = {grid_constant}*{boundary[0]}, y = {grid_constant}*{boundary[1]},
         w = {grid_constant}*{boundary[2]}, h = {grid_constant}*{boundary[3]},"""
+
 def clustersFormatting(clusters,grid_constant):
     return ",".join([clusterFormatting(cluster,grid_constant) for cluster in clusters])
 def clusterFormatting(cluster,grid_constant):
+    if cluster[5][1]:
+        return f"""
+    \t{{
+    \t    x = {grid_constant}*{cluster[0]}, y = {grid_constant}*{cluster[1]},
+    \t    w = {grid_constant}*{cluster[2]}, h = {grid_constant}*{cluster[3]},
+    \t    aX = {1}, aY = {1},
+    \t    {cluster[5][0]}
+    \t}}"""
     return f"""
     \t{{
     \t    x = {grid_constant}*{cluster[0]}, y = {grid_constant}*{cluster[1]},
     \t    w = {grid_constant}, h = {grid_constant},
     \t    aX = {cluster[2]}, aY = {cluster[3]},
-    \t    {cluster[5]}
+    \t    {cluster[5][0]}
     \t}}"""
+
 def terrainsFormatting(clusters,grid_constant):
     return ",".join([terrainFormatting(cluster,grid_constant) for cluster in clusters])
 def terrainFormatting(cluster,grid_constant):
@@ -82,36 +123,7 @@ def terrainFormatting(cluster,grid_constant):
     \t{{
     \t    x = {grid_constant}*{cluster[0]}, y = {grid_constant}*{cluster[1]},
     \t    w = {grid_constant}*{cluster[2]}, h = {grid_constant}*{cluster[3]},
-    \t    {cluster[5]}
+    \t    {cluster[5][0]}
     \t}}"""
 
-def build(input_file,output_file,author,totalBalls,grid_constant,color_designations):
-    pixels, width, height = load_image(input_file)
-    groups = grouping(pixels, width, height)
-    
-    boundaries = {
-        'boxclusters' : [],
-        'throwBoundary' : [],
-        'terrain' : []
-    }
-
-    for group in groups:
-        for c in color_designations:
-            if c[0]==group[4]:
-                group.append(c[2])
-                boundaries[c[1]].append(group)
-    
-    level = f"""return {{
-    author = "{author}",
-    totalBalls = {totalBalls},
-    throwBoundary = {{{throwBoundaryFormatting(boundaries['throwBoundary'][0],grid_constant)}
-    }},
-    boxclusters = {{{clustersFormatting(boundaries['boxclusters'],grid_constant)}
-    }},
-    terrain = {{{terrainsFormatting(boundaries['terrain'],grid_constant)}
-    }},
-}}
-"""
-    return level
-
-print(main(True))
+print(main())
