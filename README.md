@@ -6,7 +6,9 @@ Rellies on [Pillow](https://pillow.readthedocs.io/en/stable/) image library for 
 
 ## Running
 
-Currently you will have to run the `converter.ipynb` notebook.
+Have [Pillow](https://pillow.readthedocs.io/en/stable/) installed
+
+`python3 converter.py` or explore `converter.ipynb` notebook
 
 pngs should be RGBA
 
